@@ -88,22 +88,41 @@ function uninstall_pyload() {
     echo "PyLoad has been successfully uninstalled."
 }
 
-# Parancsok kezelése
-if [ "$#" -ne 1 ]; then
-    echo "This script expects an argument: 'install' or 'uninstall'"
-    exit 1
+echo 'This is unsupported software. You will not get help with this, please answer `yes` if you understand and wish to proceed'
+read -r eula
+
+if ! [[ $eula =~ yes ]]; then
+  echo "You did not accept the above. Exiting..."
+  exit 1
+else
+  echo "Proceeding with installation/uninstallation"
 fi
 
-case "$1" in
-    install)
-        install_pyload
-        ;;
-    uninstall)
-        uninstall_pyload
-        ;;
-    *)
-        echo "Invalid argument: $1"
-        echo "Usage: $0 {install|uninstall}"
-        exit 1
-        ;;
-esac
+echo "Welcome to the PyLoad installer..."
+echo ""
+echo "What would you like to do?"
+echo "Logs are stored in ${LOG_DIR}"
+echo "install = Install PyLoad"
+echo "uninstall = Completely removes PyLoad"
+echo "exit = Exits Installer"
+while true; do
+    read -r -p "Enter it here: " choice
+    case $choice in
+        "install")
+            install_pyload
+            break
+            ;;
+        "uninstall")
+            uninstall_pyload
+            break
+            ;;
+        "exit")
+            echo "Exiting installer."
+            break
+            ;;
+        *)
+            echo "Unknown option. Please enter 'install', 'uninstall', or 'exit'."
+            ;;
+    esac
+done
+exit
