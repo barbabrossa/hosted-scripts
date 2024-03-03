@@ -23,28 +23,33 @@ function install_pyload() {
     mkdir -p "$INSTALL_DIR" "$DOWNLOADS_DIR" "$LOG_DIR"
     python3 -m venv "$VENV_DIR"
     source "$VENV_DIR/bin/activate"
-    pip install wheel setuptools
-    git clone https://github.com/pyload/pyload.git "$INSTALL_DIR/pyload"
-    cd "$INSTALL_DIR/pyload"
-    pip install -r requirements.txt
+    pip install --pre pyload-ng[all]
+
+    echo "PyLoad has been installed successfully."
 
     # Konfigurációs fájl létrehozása
     mkdir -p "$CONFIG_DIR"
     cat > "$CONFIG_DIR/pyload.conf" <<EOF
-version: 1
+version: 2
 
-webinterface - "Webinterface":
-    bool activated : "Activated" = True
-    bool basicauth : "Use basic auth" = False
-    ip host : "IP" = 0.0.0.0
-    bool https : "Use HTTPS" = False
+webui - "Web Interface":
+    bool enabled : "Activated" = True
+    bool use_ssl : "Use HTTPS" = False
+    bool develop : "Development mode" = False
+    file ssl_certfile : "SSL Certificate" = ssl.crt
+    file ssl_keyfile : "SSL Key" = ssl.key
+    file ssl_certchain : "CA's intermediate certificate bundle (optional)" =
+    ip host : "IP address" = localhost
     int port : "Port" = $PORT
-    str prefix : "Path Prefix" =
-    builtin;threaded;fastcgi;lightweight server : "Server" = builtin
-    modern;pyplex;classic template : "Template" = modern
-
+    Default;modern;pyplex theme : "Theme" = modern
+    bool autologin : "Skip login if single user" = False
+    str prefix: "Path prefix" =
+    int session_lifetime : "Session lifetime (minutes)" = 44640
+    
 general - "General":
-    folder download_folder : "Download Folder" = $DOWNLOADS_DIR
+    en; language : "Language" = en
+    folder storage_folder : "Download folder" = $DOWNLOADS_DIR
+
 EOF
 
     # Systemd unit fájl létrehozása a felhasználói szinten
