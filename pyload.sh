@@ -3,8 +3,7 @@
 # Globális változók
 INSTALL_DIR="$HOME/pyload"
 VENV_DIR="$INSTALL_DIR/.venv"
-CONFIG_DIR="$INSTALL_DIR/config"
-DOWNLOADS_DIR="$HOME/Downloads/pyload"
+DOWNLOADS_DIR="$HOME/Downloads/"
 LOG_DIR="$INSTALL_DIR/logs"
 
 # Funkció a szabad port kereséséhez
@@ -27,49 +26,25 @@ function install_pyload() {
 
     echo "PyLoad has been installed successfully."
 
-    # Konfigurációs fájl létrehozása
-    mkdir -p "$CONFIG_DIR"
-    cat > "$CONFIG_DIR/pyload.conf" <<EOF
-version: 2
-
-webui - "Web Interface":
-    bool enabled : "Activated" = True
-    bool use_ssl : "Use HTTPS" = False
-    bool develop : "Development mode" = False
-    file ssl_certfile : "SSL Certificate" = ssl.crt
-    file ssl_keyfile : "SSL Key" = ssl.key
-    file ssl_certchain : "CA's intermediate certificate bundle (optional)" =
-    ip host : "IP address" = localhost
-    int port : "Port" = $PORT
-    Default;modern;pyplex theme : "Theme" = modern
-    bool autologin : "Skip login if single user" = False
-    str prefix: "Path prefix" =
-    int session_lifetime : "Session lifetime (minutes)" = 44640
-    
-general - "General":
-    en; language : "Language" = en
-    folder storage_folder : "Download folder" = $DOWNLOADS_DIR
-
-EOF
-
     # Systemd unit fájl létrehozása a felhasználói szinten
     mkdir -p "$HOME/.config/systemd/user"
     cat > "$HOME/.config/systemd/user/pyload.service" <<EOF
 [Unit]
 Description=PyLoad
+After=network.target
 
 [Service]
 Type=simple
 User=$(whoami)
-ExecStart=$VENV_DIR/bin/python $INSTALL_DIR/pyload/pyLoadCore.py --configdir=$CONFIG_DIR
+ExecStart=$VENV_DIR/bin/python $VENV_DIR/bin/pyload
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
 EOF
 
     # Systemd szolgáltatás engedélyezése és indítása
     systemctl --user daemon-reload
-    systemctl --user enable --now pyload.service
+    systemctl enable --user --now pyload.service
 
     echo "PyLoad has been installed and started successfully."
     echo "Access it at http://localhost:$PORT"
@@ -86,7 +61,7 @@ function uninstall_pyload() {
     systemctl --user reset-failed
 
     # Telepítési, konfigurációs és log könyvtárak törlése
-    rm -rf "$INSTALL_DIR" "$CONFIG_DIR" "$LOG_DIR" "$VENV_DIR"
+    rm -rf "$INSTALL_DIR" "$LOG_DIR" "$VENV_DIR"
     # Letöltési könyvtár törlése opcionálisan
     # rm -rf "$DOWNLOADS_DIR"
 
