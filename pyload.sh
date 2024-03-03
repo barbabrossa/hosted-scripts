@@ -1,19 +1,21 @@
 #!/bin/bash
+# you have to start the program from the command line and then change the port of the webui in the config file
+# program start: /home/user_name/pyload/.venv/bin/python3 /home/user_name/pyload/.venv/bin/pyload
+# edit config: .pyload/settings/pyload.cfg in webui section -> ip host : "IP address" = 0.0.0.0 and int port : "Port" = $PORT
+# when you enter the interface it is recommended to disable clicknload in the settings
 
-# Globális változók
 INSTALL_DIR="$HOME/pyload"
 VENV_DIR="$INSTALL_DIR/.venv"
 DOWNLOADS_DIR="$HOME/Downloads/"
 LOG_DIR="$INSTALL_DIR/logs"
 
-# Funkció a szabad port kereséséhez
 function find_free_port() {
     LOW_BOUND=10001
     UPPER_BOUND=20000
     comm -23 <(seq "${LOW_BOUND}" "${UPPER_BOUND}" | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 1
 }
 
-# Telepítési műveletek
+
 function install_pyload() {
     echo "Starting PyLoad installation..."
     PORT=$(find_free_port)
@@ -26,7 +28,7 @@ function install_pyload() {
 
     echo "PyLoad has been installed successfully."
 
-    # Systemd unit fájl létrehozása a felhasználói szinten
+    # Systemd unit create
     mkdir -p "$HOME/.config/systemd/user"
     cat > "$HOME/.config/systemd/user/pyload.service" <<EOF
 [Unit]
@@ -35,22 +37,20 @@ After=network.target
 
 [Service]
 Type=simple
-User=$(whoami)
 ExecStart=$VENV_DIR/bin/python $VENV_DIR/bin/pyload
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    # Systemd szolgáltatás engedélyezése és indítása
+    # Systemd szolgáltatás enable and start
     systemctl --user daemon-reload
     systemctl enable --user --now pyload.service
 
     echo "PyLoad has been installed and started successfully."
-    echo "Access it at http://localhost:$PORT"
+    echo "Access it at http://hostingby.design.server.url:$PORT"
 }
 
-# Eltávolítási műveletek
 function uninstall_pyload() {
     echo "Starting PyLoad uninstallation..."
     # Systemd szolgáltatás megállítása és eltávolítása
@@ -60,9 +60,7 @@ function uninstall_pyload() {
     systemctl --user daemon-reload
     systemctl --user reset-failed
 
-    # Telepítési, konfigurációs és log könyvtárak törlése
     rm -rf "$INSTALL_DIR" "$LOG_DIR" "$VENV_DIR"
-    # Letöltési könyvtár törlése opcionálisan
     # rm -rf "$DOWNLOADS_DIR"
 
     echo "PyLoad has been successfully uninstalled."
