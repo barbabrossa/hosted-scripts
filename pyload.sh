@@ -4,7 +4,7 @@
 # edit config: .pyload/settings/pyload.cfg in webui section -> ip host : "IP address" = 0.0.0.0 and int port : "Port" = $PORT
 # when you enter the interface it is recommended to disable clicknload in the settings
 
-INSTALL_DIR="$HOME/pyload"
+INSTALL_DIR="$HOME/.pyload"
 VENV_DIR="$INSTALL_DIR/.venv"
 DOWNLOADS_DIR="$HOME/Downloads/"
 LOG_DIR="$INSTALL_DIR/logs"
