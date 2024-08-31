@@ -83,7 +83,7 @@ function install_pyload() {
     sed -i "s/int port *=.*/int port = $PORT/" "$CONFIG_FILE"
 
     echo "PyLoad configuration has been updated."
-    echo "Access it at http://$DEFAULT_IP:$PORT"
+    echo "Access it at http://$(hostname -f):$port"
 }
 
 function uninstall_pyload() {
@@ -120,7 +120,7 @@ function upgrade_pyload() {
     echo "PyLoad service has been restarted."
 }
 
-echo 'This is unsupported software. You will not get help with this. Please answer `yes` if you understand and wish to proceed.'
+echo 'This is unsupported software. You will not get help with this, please answer `yes` if you understand and wish to proceed. You are responsible for securing your software.'
 read -r eula
 
 if [[ $eula != "yes" ]]; then
