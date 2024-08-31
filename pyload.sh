@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Konfigurálható változók
 INSTALL_DIR="$HOME/.pyload"
 VENV_DIR="$INSTALL_DIR/.venv"
 DOWNLOADS_DIR="$HOME/Downloads/"
