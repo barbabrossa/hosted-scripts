@@ -51,8 +51,17 @@ function create_virtualenv() {
         source "$VENV_DIR/bin/activate"
         echo "Upgrading pip, setuptools, and wheel..."
         pip install --upgrade pip setuptools wheel
-        echo "Upgrading all installed packages..."
-        pip list --outdated | grep -v 'Package' | awk '{print $1}' | xargs -n1 pip install --upgrade
+
+        echo "Checking for outdated packages..."
+        OUTDATED_PACKAGES=$(pip list --outdated | grep -v 'Package' | awk '{print $1}')
+
+        if [ -n "$OUTDATED_PACKAGES" ]; then
+            echo "Upgrading all outdated packages..."
+            echo "$OUTDATED_PACKAGES" | xargs -n1 pip install --upgrade
+        else
+            echo "No packages to upgrade."
+        fi
+
         echo "Virtual environment and packages upgraded successfully."
     else
         echo "Error creating virtual environment. Exiting..."
@@ -78,12 +87,22 @@ function install_pyload() {
 
     setup_systemd
 
+    echo "Waiting for PyLoad to start..."
+    sleep 5  # Wait for PyLoad to create necessary files
+
+    echo "Stopping PyLoad service to modify configuration..."
+    systemctl --user stop pyload.service
+
     # Update config file
-    sed -i "s/ip host *=.*/ip host = $DEFAULT_IP/" "$CONFIG_FILE"
-    sed -i "s/int port *=.*/int port = $PORT/" "$CONFIG_FILE"
+    sed -i "/\[webui\]/,/\[/ s/ip host *=.*/ip host = $DEFAULT_IP/" "$CONFIG_FILE"
+    sed -i "/\[webui\]/,/\[/ s/int port *=.*/int port = $PORT/" "$CONFIG_FILE"
 
     echo "PyLoad configuration has been updated."
-    echo "Access it at http://$(hostname -f):$port"
+
+    echo "Restarting PyLoad service..."
+    systemctl --user start pyload.service
+
+    echo "Access it at http://$(hostname -f):$PORT"
 }
 
 function uninstall_pyload() {
@@ -106,16 +125,22 @@ function upgrade_pyload() {
     echo "Upgrading pip, setuptools, and wheel..."
     pip install --upgrade pip setuptools wheel
     
-    echo "Upgrading all installed packages..."
-    pip list --outdated | grep -v 'Package' | awk '{print $1}' | xargs -n1 pip install --upgrade
-    
+    echo "Checking for outdated packages..."
+    OUTDATED_PACKAGES=$(pip list --outdated | grep -v 'Package' | awk '{print $1}')
+
+    if [ -n "$OUTDATED_PACKAGES" ]; then
+        echo "Upgrading all outdated packages..."
+        echo "$OUTDATED_PACKAGES" | xargs -n1 pip install --upgrade
+    else
+        echo "No packages to upgrade."
+    fi
+
     if ! pip install --upgrade pyload-ng[all]; then
         echo "Error upgrading PyLoad. Exiting..."
         exit 1
     fi
     
-    echo "PyLoad has been upgraded successfully."
-    
+    echo "Restarting PyLoad service..."
     systemctl --user restart pyload.service
     echo "PyLoad service has been restarted."
 }
