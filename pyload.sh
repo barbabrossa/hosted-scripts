@@ -1,13 +1,13 @@
 #!/bin/bash
-# you have to start the program from the command line and then change the port of the webui in the config file
-# program start: /home/user_name/pyload/.venv/bin/python3 /home/user_name/pyload/.venv/bin/pyload
-# edit config: .pyload/settings/pyload.cfg in webui section -> ip host : "IP address" = 0.0.0.0 and int port : "Port" = $PORT
-# when you enter the interface it is recommended to disable clicknload in the settings
 
+# Konfigurálható változók
 INSTALL_DIR="$HOME/.pyload"
 VENV_DIR="$INSTALL_DIR/.venv"
 DOWNLOADS_DIR="$HOME/Downloads/"
 LOG_DIR="$INSTALL_DIR/logs"
+CONFIG_FILE="$INSTALL_DIR/settings/pyload.cfg"
+SYSTEMD_SERVICE="$HOME/.config/systemd/user/pyload.service"
+DEFAULT_IP="0.0.0.0"
 
 function find_free_port() {
     LOW_BOUND=10001
@@ -15,22 +15,10 @@ function find_free_port() {
     comm -23 <(seq "${LOW_BOUND}" "${UPPER_BOUND}" | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 1
 }
 
-
-function install_pyload() {
-    echo "Starting PyLoad installation..."
-    PORT=$(find_free_port)
-    echo "Selected port for PyLoad: $PORT"
-
-    mkdir -p "$INSTALL_DIR" "$DOWNLOADS_DIR" "$LOG_DIR"
-    python3 -m venv "$VENV_DIR"
-    source "$VENV_DIR/bin/activate"
-    pip install --pre pyload-ng[all]
-
-    echo "PyLoad has been installed successfully."
-
-    # Systemd unit create
-    mkdir -p "$HOME/.config/systemd/user"
-    cat > "$HOME/.config/systemd/user/pyload.service" <<EOF
+function setup_systemd() {
+    echo "Setting up systemd service..."
+    mkdir -p "$(dirname "$SYSTEMD_SERVICE")"
+    cat > "$SYSTEMD_SERVICE" <<EOF
 [Unit]
 Description=PyLoad
 After=network.target
@@ -43,51 +31,122 @@ ExecStart=$VENV_DIR/bin/python $VENV_DIR/bin/pyload
 WantedBy=multi-user.target
 EOF
 
-    # Systemd szolgáltatás enable and start
     systemctl --user daemon-reload
     systemctl enable --user --now pyload.service
+    echo "Systemd service has been set up and started."
+}
 
-    echo "PyLoad has been installed and started successfully."
-    echo "Access it at http://hostingby.design.server.url:$PORT"
+function remove_systemd() {
+    echo "Removing systemd service..."
+    systemctl --user stop pyload.service
+    systemctl --user disable pyload.service
+    rm -f "$SYSTEMD_SERVICE"
+    systemctl --user daemon-reload
+    systemctl --user reset-failed
+    echo "Systemd service has been removed."
+}
+
+function create_virtualenv() {
+    echo "Creating virtual environment..."
+    if python3 -m venv "$VENV_DIR"; then
+        source "$VENV_DIR/bin/activate"
+        echo "Upgrading pip, setuptools, and wheel..."
+        pip install --upgrade pip setuptools wheel
+        echo "Upgrading all installed packages..."
+        pip list --outdated | grep -v 'Package' | awk '{print $1}' | xargs -n1 pip install --upgrade
+        echo "Virtual environment and packages upgraded successfully."
+    else
+        echo "Error creating virtual environment. Exiting..."
+        exit 1
+    fi
+}
+
+function install_pyload() {
+    echo "Starting PyLoad installation..."
+    PORT=$(find_free_port)
+    echo "Selected port for PyLoad: $PORT"
+
+    mkdir -p "$INSTALL_DIR" "$DOWNLOADS_DIR" "$LOG_DIR"
+    
+    create_virtualenv
+
+    if ! pip install --pre pyload-ng[all]; then
+        echo "Error installing PyLoad. Exiting..."
+        exit 1
+    fi
+
+    echo "PyLoad has been installed successfully."
+
+    setup_systemd
+
+    # Update config file
+    sed -i "s/ip host *=.*/ip host = $DEFAULT_IP/" "$CONFIG_FILE"
+    sed -i "s/int port *=.*/int port = $PORT/" "$CONFIG_FILE"
+
+    echo "PyLoad configuration has been updated."
+    echo "Access it at http://$DEFAULT_IP:$PORT"
 }
 
 function uninstall_pyload() {
     echo "Starting PyLoad uninstallation..."
-    # Systemd szolgáltatás megállítása és eltávolítása
-    systemctl --user stop pyload.service
-    systemctl --user disable pyload.service
-    rm -f "$HOME/.config/systemd/user/pyload.service"
-    systemctl --user daemon-reload
-    systemctl --user reset-failed
-
+    remove_systemd
     rm -rf "$INSTALL_DIR" "$LOG_DIR" "$VENV_DIR"
-    # rm -rf "$DOWNLOADS_DIR"
-
     echo "PyLoad has been successfully uninstalled."
 }
 
-echo 'This is unsupported software. You will not get help with this, please answer `yes` if you understand and wish to proceed'
+function upgrade_pyload() {
+    echo "Starting PyLoad upgrade..."
+    
+    if [ ! -d "$VENV_DIR" ]; then
+        echo "Virtual environment not found. Exiting..."
+        exit 1
+    fi
+    
+    source "$VENV_DIR/bin/activate"
+    
+    echo "Upgrading pip, setuptools, and wheel..."
+    pip install --upgrade pip setuptools wheel
+    
+    echo "Upgrading all installed packages..."
+    pip list --outdated | grep -v 'Package' | awk '{print $1}' | xargs -n1 pip install --upgrade
+    
+    if ! pip install --upgrade pyload-ng[all]; then
+        echo "Error upgrading PyLoad. Exiting..."
+        exit 1
+    fi
+    
+    echo "PyLoad has been upgraded successfully."
+    
+    systemctl --user restart pyload.service
+    echo "PyLoad service has been restarted."
+}
+
+echo 'This is unsupported software. You will not get help with this. Please answer `yes` if you understand and wish to proceed.'
 read -r eula
 
-if ! [[ $eula =~ yes ]]; then
+if [[ $eula != "yes" ]]; then
   echo "You did not accept the above. Exiting..."
   exit 1
-else
-  echo "Proceeding with installation/uninstallation"
 fi
 
+echo "Proceeding with installation/uninstallation."
 echo "Welcome to the PyLoad installer..."
 echo ""
 echo "What would you like to do?"
 echo "Logs are stored in ${LOG_DIR}"
 echo "install = Install PyLoad"
-echo "uninstall = Completely removes PyLoad"
-echo "exit = Exits Installer"
+echo "upgrade = Upgrade PyLoad"
+echo "uninstall = Completely remove PyLoad"
+echo "exit = Exit Installer"
 while true; do
-    read -r -p "Enter it here: " choice
+    read -r -p "Enter your choice: " choice
     case $choice in
         "install")
             install_pyload
+            break
+            ;;
+        "upgrade")
+            upgrade_pyload
             break
             ;;
         "uninstall")
@@ -99,7 +158,7 @@ while true; do
             break
             ;;
         *)
-            echo "Unknown option. Please enter 'install', 'uninstall', or 'exit'."
+            echo "Unknown option. Please enter 'install', 'upgrade', 'uninstall', or 'exit'."
             ;;
     esac
 done
